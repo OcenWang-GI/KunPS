@@ -1,0 +1,159 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+# This workflow will build, test, sign and package a WPF or Windows Forms desktop application
+# built on .NET Core.
+# To learn how to migrate your existing application to .NET Core,
+# refer to https://docs.microsoft.com/en-us/dotnet/desktop-wpf/migration/convert-project-from-net-framework
+#
+# To configure this workflow:
+#
+# Configure environment variables
+# GitHub sets default environment variables for every workflow run.
+# Replace the variables relative to your project in the "env" section below.
+# For more information on GitHub Actions, refer to https://github.com/features/actions
+# For a complete CI/CD sample to get started with GitHub Action workflows for Desktop Applications,
+# refer to https://github.com/microsoft/github-actions-for-desktop-apps
+
+name: Build
+
+on: push
+
+env:
+    SOLUTION_FILE_PATH: ./KunPS.sln
+    BUILD_CONFIGURATION: Debug
+
+jobs:
+  build:
+    runs-on: windows-latest  # For a list of available runner types, refer to
+                             # https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idruns-on
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # Install the .NET Core workload
+    - name: Install .NET Core
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.x
+
+    # Add  MSBuild to the PATH: https://github.com/microsoft/setup-msbuild
+#    - name: Setup MSBuild
+#      uses: microsoft/setup-msbuild@v2
+
+    # Execute all unit tests in the solution
+#    - name: Execute unit tests
+#      run: dotnet test
+
+    # Restore the application to populate the obj folder with RuntimeIdentifiers
+#    - name: Restore the application
+#      run: msbuild ${{ env.SOLUTION_FILE_PATH }} /m /t:Restore /p:Configuration=${{ env.BUILD_CONFIGURATION }}
+
+    - name: Build Solution
+      run: dotnet build -m
+    
+#    - name: Removing unused files
+#      shell: bash
+#      run: |
+#        rm -rf ./GameServer/obj
+#        rm -rf ./GameServer/bin/Release/net8.0/*.pdb
+#        rm -rf ./SDKServer/obj
+#        rm -rf ./SDKServer/bin/Release/net8.0/*.pdb
+#        rm -rf ./TrafficAnalyzer/obj
+#        rm -rf ./TrafficAnalyzer/bin/Release/net8.0/*.pdb
+
+#    - name: List all files
+#      shell: pwsh
+#      run: dir -s
+
+    - name: Rename & Move
+      shell: bash
+      run: |
+        mkdir ./Build
+        mv ./GameServer/bin/Debug/net8.0 ./Build/GameServer
+        mv ./SDKServer/bin/Debug/net8.0 ./Build/SDKServer
+        mv ./TrafficAnalyzer/bin/Debug/net8.0 ./Build/TrafficAnalyzer
+        
+    - name: Get Commit Count
+      id: tag
+      shell: bash
+      run: |
+        LOCALVER=`git rev-list HEAD --count`
+        echo TAG=$LOCALVER >> $GITHUB_OUTPUT
+    
+    - name: Set Version
+      id: ver
+      shell: bash
+      run: |
+        BRANCH=`git rev-parse --abbrev-ref HEAD`
+        GIT_HASH=`git rev-parse --short HEAD`
+        LOCALVER=`git rev-list HEAD --count`
+        echo VER="Debug-$BRANCH-$LOCALVER-$GIT_HASH" >> $GITHUB_OUTPUT
+    
+    - name: Package Builds
+      shell: pwsh
+      run: |
+        7z a -mx9 "./Build/${{ steps.ver.outputs.ver }}.7z" "./Build/*"
+#        Compress-Archive -Path "./Build" -DestinationPath "./Build/${{ steps.ver.outputs.ver }}.zip"
+  
+# 只有Repo Owner的Push才能成功Release        
+#    - name: Create Release
+#      uses: ncipollo/release-action@v1
+#      with:
+#        #token: ${{ secrets.GITHUB_TOKEN }}
+#        #commit: true
+#        tag: ${{ steps.tag.outputs.TAG }}
+#        name: ${{ steps.ver.outputs.VER }}
+#        prerelease: false
+#        draft: false
+#        makeLatest: true
+#        generateReleaseNotes: true
+#        artifacts: "./Build/Build.7z,./Build/Build.zip"
+#        body: |
+#          ### Ver ${{ steps.ver.outputs.ver }}
+#          ### ${{ github.sha }}
+#          #### Build by ${{ github.actor }}
+#          ##### Debug Build Publish
+        
+# Private repo的存储空间有限，先注释掉上传(划掉
+# 5M 的 7z 极限压缩包应该问题不大
+    # Upload the package: https://github.com/marketplace/actions/upload-a-build-artifact
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.ver.outputs.ver }}
+        path: |
+          ./Build/*.7z
+#          ./SDKServer/bin/Release/net8.0/*
+#          ./TrafficAnalyzer/bin/Release/net8.0/*
+
+        # The desired behavior if no files are found using the provided path.
+        # Available Options:
+        #   warn: Output a warning but do not fail the action
+        #   error: Fail the action with an error message
+        #   ignore: Do not output any warnings or errors, the action does not fail
+        # Optional. Default is 'warn'
+        if-no-files-found: error
+        
+        # Duration after which artifact will expire in days. 0 means using default retention.
+        # Minimum 1 day.
+        # Maximum 90 days unless changed from the repository settings page.
+        # Optional. Defaults to repository settings.
+        retention-days: 7
+
+        # The level of compression for Zlib to be applied to the artifact archive.
+        # The value can range from 0 to 9.
+        # For large files that are not easily compressed, a value of 0 is recommended for significantly faster uploads.
+        # Optional. Default is '6'
+#        compression-level: 9
+#
+        # If true, an artifact with a matching name will be deleted before a new one is uploaded.
+        # If false, the action will fail if an artifact for the given name already exists.
+        # Does not fail if the artifact does not exist.
+        # Optional. Default is 'false'
+#        overwrite: true

@@ -5,3 +5,7 @@ This side is released by xeondev magic change, thank you very much xeondev If yo
 You can visit Reverse Drums' Discord Channel
 
 你可以访问Reversed Rooms的discord频道
+
+Note: Before using this PS, you should know that this is ultimately owned by xeondev 
+
+注意:您在使用本PS前须知这个最终归属于xeondev 
